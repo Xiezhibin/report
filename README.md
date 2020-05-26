@@ -133,7 +133,7 @@ rdd2.unpersist()
 ```
 
 #### DataSet + DataFrame
-1. 同弹性分布式数据集类似，DataSet 也是不可变分布式的数据单元，它既有与 RDD 类似的各种转换和动作函数定义，而且还享受 Spark SQL 优化过的执行引擎，使得数据搜索效率更高。
+1. 同弹性分布式数据集类似，DataSet 也是不可变分布式的数据单元，它既有与 RDD 类似的各种转换和动作函数定义，DataSet以Catalyst逻辑执行计划表示，并且数据以编码的二进制形式被存储，不需要反序列化就可以执行sorting、shuffle等操作。
 2. DataFrame 可以被看作是一种特殊的 DataSet。它也是关系型数据库中表一样的结构化存储机制，也是分布式不可变的数据结构。
 
 ![image](https://github.com/Xiezhibin/AI_spark/blob/master/images/Spark_Sql1.png)
@@ -146,7 +146,58 @@ Spark SQL 本质上是一个库。它运行在 Spark 的核心执行引擎之上
 
 如上图所示，它提供类似于 SQL 的操作接口，允许数据仓库应用程序直接获取数据，允许使用者通过命令行操作来交互地查询数据，还提供两个 API：DataFrame API 和 DataSet API。
 
-Java、Python 和 Scala 的应用程序可以通过这两个 API 来读取和写入 RDD。此外，正如我们在上一讲介绍的，应用程序还可以直接操作 RDD。使用 Spark SQL 会让开发者觉得好像是在操作一个关系型数据库一样，而不是在操作 RDD。这是它优于原生的 RDD API 的地方。
+Java、Python 和 Scala 的应用程序可以通过这两个 API 来读取和写入 RDD。此外，应用程序还可以直接操作 RDD。使用 Spark SQL 会让开发者觉得好像是在操作一个关系型数据库一样，而不是在操作 RDD。这是它优于原生的 RDD API 的地方。
+
+## Apache Beam
+Apache Beam是一个开源统一编程模型，用于定义和执行数据处理管道，包括ETL、批处理和流（连续）处理。[1] Beam流水线是使用提供的SDK之一定义的，并在Beam支持的一个运行器（分布式处理后端）中执行，包括Apache Apex、Apache Flink、Apache Gearpump（孵化中）、Apache Samza、Apache Spark和Google Cloud Dataflow。
+![image](https://github.com/Xiezhibin/AI_spark/blob/master/images/Beam1.png)
+#### Beam 的编程模型
+如下图所示，Beam模型中一共可以分成如下六个部分。
+
+第一层，是现在已有的各种大数据处理平台（例如 Apache Spark 或者 Apache Flink），在 Beam 中它们也被称为 Runner。
+
+第二层，是可移植的统一模型层，各个 Runners 将会依据中间抽象出来的这个模型思想，提供一套符合这个模型的 APIs 出来，以供上层转换。
+
+第三层，是 SDK 层。SDK 层将会给工程师提供不同语言版本的 API 来编写数据处理逻辑，这些逻辑就会被转化成 Runner 中相应的 API 来运行。
+
+第四层，是可扩展库层。工程师可以根据已有的 Beam SDK，贡献分享出更多的新开发者 SDK、IO 连接器、转换操作库等等。
+
+第五层，我们可以看作是应用层，各种应用将会通过下层的 Beam SDK 或工程师贡献的开发者 SDK 来实现。
+
+最上面的第六层，也就是社区一层。在这里，全世界的工程师可以提出问题，解决问题，实现解决问题的思路。
+
+![image](https://github.com/Xiezhibin/AI_spark/blob/master/images/beam2.png)
+
+这个世界中的数据可以分成有边界数据和无边界数据，而有边界数据又是无边界数据的一种特例。所以，我们都可以将所有的数据抽象看作是无边界数据。
+
+同时，每一个数据都是有两种时域的，分别是事件时间和处理时间。我们在处理无边界数据的时候，因为在现实世界中，数据会有延时、丢失等等的状况发生，我们无法保证现在到底是否接收完了所有发生在某一时刻之前的数据。所以现实中，流处理必须在数据的完整性和数据处理的延时性上作出取舍。
+
+Beam 编程模型就是在这样的基础上提出的。Beam 编程模型会涉及到的 4 个概念，窗口、水印、触发器和累加模式，我来为你介绍一下。
+
+##### 窗口（Window）
+窗口将无边界数据根据事件时间分成了一个个有限的数据集。我们可以看看批处理这个特例。在批处理中，我们其实是把一个无穷小到无穷大的时间窗口赋予了数据集。
+
+##### 水印（Watermark）
+水印是用来表示与数据事件时间相关联的输入完整性的概念。对于事件时间为 X 的水印是指：数据处理逻辑已经得到了所有事件时间小于 X 的无边界数据。在数据处理中，水印是用来测量数据进度的。
+
+##### 触发器（Triggers）
+触发器指的是表示在具体什么时候，数据处理逻辑会真正地触发窗口中的数据被计算。触发器能让我们可以在有需要时对数据进行多次运算，例如某时间窗口内的数据有更新，这一窗口内的数据结果需要重算。
+
+##### 累加模式（Accumulation）
+累加模式指的是如果我们在同一窗口中得到多个运算结果，我们应该如何处理这些运算结果。这些结果之间可能完全不相关，例如与时间先后无关的结果，直接覆盖以前的运算结果即可。这些结果也可能会重叠在一起。
+
+![image](https://github.com/Xiezhibin/AI_spark/blob/master/images/beam3.png)
+
+#### PCollection
+
+PCollection是Beam的一种特殊的数据结构。
+
+- 无序：同样作为数据的容器，PCollection 却并不像 Python/Java 的 List 或者 C++ 的 vector，Beam 对于 PCollection 中元素的处理顺序不作任何保证。
+- 无界：PCollection 也不像 Python/Java 的 Set，或者 C++ 的 unordered_set，PCollection 不一定有固定的边界。所以，你也不能指望去查找一个 PCollection 的大小。
+- 不可变性：修改一个 PCollection 的唯一方式就是去转化 (Transform) 它。
+
+
+
 
 
 

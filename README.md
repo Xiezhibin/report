@@ -1,5 +1,4 @@
-# AI_spark
-专题汇报
+# 数据生产力工具及其转变
 ## Mapreduce
 
 ### Mapreduce算法基本原理
@@ -154,6 +153,7 @@ Apache Beam是一个开源统一编程模型，用于定义和执行数据处理
 #### Beam 的编程模型
 如下图所示，Beam模型中一共可以分成如下六个部分。
 
+```
 第一层，是现在已有的各种大数据处理平台（例如 Apache Spark 或者 Apache Flink），在 Beam 中它们也被称为 Runner。
 
 第二层，是可移植的统一模型层，各个 Runners 将会依据中间抽象出来的这个模型思想，提供一套符合这个模型的 APIs 出来，以供上层转换。
@@ -164,7 +164,8 @@ Apache Beam是一个开源统一编程模型，用于定义和执行数据处理
 
 第五层，我们可以看作是应用层，各种应用将会通过下层的 Beam SDK 或工程师贡献的开发者 SDK 来实现。
 
-最上面的第六层，也就是社区一层。在这里，全世界的工程师可以提出问题，解决问题，实现解决问题的思路。
+第六层，也就是社区一层。在这里，全世界的工程师可以提出问题，解决问题，实现解决问题的思路。
+```
 
 ![image](https://github.com/Xiezhibin/AI_spark/blob/master/images/beam2.png)
 
@@ -191,10 +192,33 @@ Beam 编程模型就是在这样的基础上提出的。Beam 编程模型会涉�
 #### PCollection
 
 PCollection是Beam的一种特殊的数据结构。
-
+```
 - 无序：同样作为数据的容器，PCollection 却并不像 Python/Java 的 List 或者 C++ 的 vector，Beam 对于 PCollection 中元素的处理顺序不作任何保证。
 - 无界：PCollection 也不像 Python/Java 的 Set，或者 C++ 的 unordered_set，PCollection 不一定有固定的边界。所以，你也不能指望去查找一个 PCollection 的大小。
 - 不可变性：修改一个 PCollection 的唯一方式就是去转化 (Transform) 它。
+```
+
+# 建模分析框架及实践
+
+## Lambda Vs Kappa
+### Lambda 框架
+Lambda 框架（Lambda Architecture）是由 Twitter 工程师南森·马茨（Nathan Marz）提出的大数据处理架构。这一架构的提出基于马茨在 BackType 和 Twitter 上的分布式数据处理系统的经验。Lambda 架构使开发人员能够构建大规模分布式数据处理系统。它具有很好的灵活性和可扩展性，也对硬件故障和人为失误有很好的容错性。Lambda 架构总共由三层系统组成：批处理层（Batch Layer），速度处理层（Speed Layer），以及用于响应查询的服务层（Serving Layer）。
+
+![image](https://github.com/Xiezhibin/AI_spark/blob/master/images/model1.png)
+
+### Kappa 框架
+虽然 Lambda 框架使用起来十分灵活，并且可以适用于很多的应用场景，但在实际应用的时候，它的维护很复杂。需要维护两个复杂的分布式系统，并且保证他们逻辑上产生相同的结果输出到服务层中。
+
+Kappa 框架是由 LinkedIn 的前首席工程师杰伊·克雷普斯（Jay Kreps）提出的一种架构思想。
+
+```
+- 改进速度层的系统性能，使得它可以处理好数据的完整性和准确性问题
+- 改进速度层，使它既能进行实时数据处理，也能在业务逻辑更新的情况下重新处理以前处理过的历史数据
+```
+
+![image](https://github.com/Xiezhibin/AI_spark/blob/master/images/model2.png)
+
+### 流数据建模案例分析
 
 
 

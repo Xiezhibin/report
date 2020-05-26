@@ -1,6 +1,6 @@
 # AI_spark
 专题汇报
-## Hadoop+Mapreduce+Hive
+## Mapreduce
 
 ### Mapreduce算法基本原理
 
@@ -99,6 +99,55 @@ spark是一个实现快速通用的集群计算平台。它是由加州大学伯
 ![image](https://github.com/Xiezhibin/AI_spark/blob/master/images/spark1.png)
 
 可以看出，Hadoop 做每一次迭代运算的时间基本相同，而 Spark 除了第一次载入数据到内存以外，别的迭代时间基本可以忽略。
+
+#### RDD
+RDD又称弹性分布式数据集，是spark这座大厦的基础，有以下基本特性：分区、不可变和并行操作。
+- 分区：分区代表同一个 RDD 包含的数据被存储在系统的不同节点中，在物理存储中，每个分区指向一个存放在内存或者硬盘中的数据块（Block），而这些数据块是独立的，它们可以被存放在系统中的不同节点。
+- 不可变性：代表每一个 RDD 都是只读的，它所包含的分区信息不可以被改变。显然，对于代表中间结果的 RDD，我们需要记录它是通过哪个 RDD 进行哪些转换操作得来，即依赖关系，而不用立刻去具体存储计算出的数据本身。这样做有助于提升 Spark 的计算效率，并且使错误恢复更加容易。
+- 并行操作：并行操作由于单个 RDD 的分区特性，使得它天然支持并行操作，即不同节点上的数据可以被分别处理，然后产生一个新的 RDD。
+
+RDD转换操作
+RDD 的数据操作分为两种：转换（Transformation）和动作（Action）
+```
+###  RDD 的转换操作
+- Map
+- Filter
+- mapPartitions
+- groupByKey
+###  RDD 的动作操作
+- Collect
+- Reduce
+- CountByKey
+```
+Spark 在每次转换操作的时候，使用了新产生的 RDD 来记录计算逻辑，这样就把作用在 RDD 上的所有计算逻辑串起来，形成了一个链条。当对 RDD 进行动作时，Spark 会从计算链的最后一个 RDD 开始，依次从上一个 RDD 获取数据并执行计算逻辑，最后输出结果。
+
+每当我们对 RDD 调用一个新的 action 操作时，整个 RDD 都会从头开始运算。因此，如果某个 RDD 会被反复重用的话，每次都从头计算非常低效，我们应该对多次使用的 RDD 进行一个持久化操作。Spark 的 persist() 和 cache() 方法支持将 RDD 的数据缓存至内存或硬盘中，这样当下次对同一 RDD 进行 Action 操作时，可以直接读取 RDD 的结果，大幅提高了 Spark 的计算效率。
+```
+rdd = sc.parallelize([1, 2, 3, 4, 5])
+rdd1 = rdd.map(lambda x: x+5)
+rdd2 = rdd1.filter(lambda x: x % 2 == 0)
+rdd2.persist()
+count = rdd2.count() // 3
+first = rdd2.first() // 6
+rdd2.unpersist()
+```
+
+#### DataSet + DataFrame
+1. 同弹性分布式数据集类似，DataSet 也是不可变分布式的数据单元，它既有与 RDD 类似的各种转换和动作函数定义，而且还享受 Spark SQL 优化过的执行引擎，使得数据搜索效率更高。
+2. DataFrame 可以被看作是一种特殊的 DataSet。它也是关系型数据库中表一样的结构化存储机制，也是分布式不可变的数据结构。
+
+![image](https://github.com/Xiezhibin/AI_spark/blob/master/images/Spark_Sql1.png)
+
+#### Spark SQL
+
+Spark SQL 本质上是一个库。它运行在 Spark 的核心执行引擎之上。
+
+![image](https://github.com/Xiezhibin/AI_spark/blob/master/images/Spark_Sql2.png)
+
+如上图所示，它提供类似于 SQL 的操作接口，允许数据仓库应用程序直接获取数据，允许使用者通过命令行操作来交互地查询数据，还提供两个 API：DataFrame API 和 DataSet API。
+
+Java、Python 和 Scala 的应用程序可以通过这两个 API 来读取和写入 RDD。此外，正如我们在上一讲介绍的，应用程序还可以直接操作 RDD。使用 Spark SQL 会让开发者觉得好像是在操作一个关系型数据库一样，而不是在操作 RDD。这是它优于原生的 RDD API 的地方。
+
 
 
 

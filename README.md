@@ -204,7 +204,7 @@ PCollection是Beam的一种特殊的数据结构。
 ### Lambda 框架
 Lambda 框架（Lambda Architecture）是由 Twitter 工程师南森·马茨（Nathan Marz）提出的大数据处理架构。这一架构的提出基于马茨在 BackType 和 Twitter 上的分布式数据处理系统的经验。Lambda 架构使开发人员能够构建大规模分布式数据处理系统。它具有很好的灵活性和可扩展性，也对硬件故障和人为失误有很好的容错性。Lambda 架构总共由三层系统组成：批处理层（Batch Layer），速度处理层（Speed Layer），以及用于响应查询的服务层（Serving Layer）。
 
-![image](https://github.com/Xiezhibin/AI_spark/blob/master/images/model1.png)
+![image](https://github.com/Xiezhibin/AI_spark/blob/master/images/model1.jpg)
 
 ### Kappa 框架
 虽然 Lambda 框架使用起来十分灵活，并且可以适用于很多的应用场景，但在实际应用的时候，它的维护很复杂。需要维护两个复杂的分布式系统，并且保证他们逻辑上产生相同的结果输出到服务层中。

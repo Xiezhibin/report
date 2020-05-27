@@ -218,7 +218,193 @@ Kappa 框架是由 LinkedIn 的前首席工程师杰伊·克雷普斯（Jay Krep
 
 ![image](https://github.com/Xiezhibin/AI_spark/blob/master/images/model2.png)
 
-### 流数据建模案例分析
+### 数据建模案例分析
+#### 用户点击行为预测
+本次一共选取了云闪付注册用户在四季度截止观测期前的交易总金额、红包获取总净额、用户所在城市划分、用户年龄以及通过机器学习方法预测的用户的有房概率以及有车概率作为本次的用户属性特征；主流功能板块点击行为、主流功能板块所属类别的点击行为、以及上日点击占比为云闪付点击行为特征；该行为的引流应用、引流应用所属类别、上日同事件点击次数、上日同类别行为点击次数作为行为序列-用户特征的交叉特征。	
+
+|特征类型        | 变量英文名     | 变量中文名  |
+| ------------- |:-------------:| -----:|
+| 用户属性特征   | Pre_trans_at  | 交易总金额|
+| 用户属性特征   | Pre_point_at  | 红包获取金额|
+| 用户属性特征   | Pre_car_prob  | 有车概率 |
+| 用户属性特征   |Pre_estate_prob| 有房概率|
+| 用户属性特征   | Pre_car_prob |年龄|
+用户属性特征   | Pre_city_grd  | 城市发达程度|
+| 点击行为特征   | Item_id  | 点击行为id |
+| 点击行为特征   |Cate_id| 行为所属类别|
+| 点击行为特征   | Last_day_popularcate_ratio|板块点击率|
+| 点击行为特征   | last_click_item_id  | 上一点击行为 |
+| 行为序列-用户特征交叉特征  |last_click_cate_id| 上一点击行为所属类别|
+| 行为序列-用户特征交叉特征   | Last_day_click_the_same_item|上日点击事件次数|
+| 行为序列-用户特征交叉特征   | Last_day_click_the_same_cate|昨日点击同类别事件次数|
+
+在创建SparkSession后，用Spark_Sql读取hive表data_tmp.xzb_y_0406中的数据
+```
+from pyspark.sql import SparkSession,Row, functions as F
+from pyspark import SparkContext, SparkConf
+from pyspark.sql.types import *
+from pyspark.sql.window import Window
+from pyspark.sql.functions import desc
+from pyspark.sql.functions import to_date, to_timestamp
+import numpy as np
+import pandas as pd
+import datetime
+ss = SparkSession.builder. \
+        appName("Daniel_DataMining").enableHiveSupport(). \
+        config("spark.yarn.queue", "root.cqpsrvas"). \
+        config("spark.sql.hive.convertMetastoreParquet", "True"). \
+        config("spark.driver.memory","20G"). \
+        config("spark.dynamicAllocation.maxExecutors", "1300"). \
+        getOrCreate()
+        
+f = ss.sql("""select * from data_tmp.xzb_y_0406""")
+```
+#### 利用spark机器学习包对数据进行预处理
+
+- 在我们想要构建的模型中，有5个输出参数。所以我们需要把它们分离处理；
+
+- 具体的问题有：交易金额和优惠金额的值普遍都很大，我们可以把它们标准化处理；
+
+- 有的属性中有空值，比如昨日点击相同应用，需要我们的转化；
+
+- 有的属性是离散型的数据，比如年龄和所属城市发达水平。需要我们将其他分类处理；
+
+对于第一点，我们可以用select函数和where函数将需要分析的数据取出来
+
+对于第二点，数据的标准化，我们可以借助spark的机器学习库Spark ML来完成。由于Spark ML也是基于DataFrame,很快就可以对数据进行处理。
+```
+#添加如下5个变量；如果有为1、如果没有为0
+
+def Y_Column(df,names):
+    for name in names:
+        df=df.withColumn(name,F.when(df['new_item_id']==name,1).otherwise(0))
+    return df
+
+columns = ['1', '2', '3', '4', '5', '6']
+df = Y_Column(a, columns)
+
+#将数字列变为double存储类型
+
+def convertColumn(df, names, newType):
+    for name in names:
+        df = df.withColumn(name, df[name].cast(newType))
+    return df
+
+columns = ['popularcate_ratio', 'last_click_item', 'last_click_cate_id', 
+           'last_day_click_the_same_item', 'last_day_click_the_same_cate', 'pre_estate_prob', 
+           'pre_car_prob', 'pre_trans_at','pre_points_at']
+
+df = convertColumn(df, columns, FloatType())
+
+#空值处理
+df=df.fillna(0) 
+
+#离散数据处理
+
+df=ss.sql(
+"""
+select 
+case  pre_city_grd  
+when  pre_city_grd='二线发展较弱城市' then 1
+when  pre_city_grd='三线城市' then 2
+when  pre_city_grd is Null then 0
+when  pre_city_grd='四线城市' then 3
+when  pre_city_grd='一线城市' then 4
+when  pre_city_grd='二线发达城市' then 5
+when  pre_city_grd='五线城市' then 6
+when  pre_city_grd='二线中等城市' then 7
+when  pre_city_grd='其他' then 8
+else 9
+end as pre_city_grd_new,
+* from df1
+"""
+)
+df=df.drop(df.pre_city_grd)
+
+# 归一化 
+# 把需要所有变量分为feature 和 lable两个部分
+
+from pyspark.ml.linalg import Vectors
+from pyspark.ml.feature import VectorAssembler
+sembler = VectorAssembler( inputCols=["pre_city_grd_new","popularcate_ratio","pre_estate_prob","pre_car_prob",
+"pre_age","pre_trans_at","pre_points_at", "last_click_item", "last_click_cate_id", "last_day_click_the_same_item","last_day_click_the_same_cate"],    outputCol="features")
+output = sembler.transform(df2)
+
+label_features1 = output.select("features", "1").toDF('features','label') #这里的1为添加卡的行为操作
+### 归一化
+from pyspark.ml.feature import StandardScaler
+
+standardScaler = StandardScaler(inputCol="features", outputCol="features_scaled")
+scaler = standardScaler.fit(label_features1)
+scaled_df = scaler.transform(label_features1)
+```
+#### 弹性网络（Elastic Net）
+```
+## 训练集合测试集合选择（一共100万条样本）
+train_data, test_data = scaled_df.randomSplit([.8,.2],seed=123)
+
+from pyspark.ml.regression import LinearRegression
+
+lr = LinearRegression(featuresCol='features_scaled', labelCol="label", maxIter=10, regParam=0.08, elasticNetParam=0.02)
+linearModel = lr.fit(train_data)
+
+linearModel.coefficients,linearModel.intercept
+
+#添加卡 1 ==246 popularcate_ratio pre_car_prob pre_trans_at
+
+imp_coef = np.array(linearModel.coefficients)
+coef = pd.Series(imp_coef, index = X.columns) 
+
+print("Elastic picked " + str(sum(coef != 0)) + 
+      " variables and eliminated the other " +  
+      str(sum(coef == 0)) + " variables") 
+
+import matplotlib
+imp_coef = pd.concat([coef.sort_values().head(5),
+                     coef.sort_values().tail(5)])
+matplotlib.rcParams['figure.figsize'] = (6.0, 4.0)
+imp_coef.plot(kind = "barh")
+plt.title("Coefficients in the Elastic Model")
+```
+#### 结论
+![image](https://github.com/Xiezhibin/AI_spark/blob/master/images/model3.png)
+##### 云闪付主流功能点击和客群画像存在相关性
+大数据和机器学习结果显示，不同的主流应用在特征标准上存在显著差异，云闪付主流功能的使用和用户客族群画像存在强相关。
+- 年龄、交易金额、有车特征对“添加卡”功能存在负面效应。通俗来说、用户年龄越大，用户添卡的积极性越低；绑卡之前，也很难存在实质性的交易行为。
+- 交易金额对“商城”入口的点击行为有“负项影响”，商城入口对低交易用户的吸引较大。年龄、地域信息未对商场点击产生显著影响。
+- 有房用户、红包赢取、交易金额对“付款码”点击有显著的影响，前期第交易用户更有可能使用云闪付的“付款码”功能。年龄、地域分布对“付款码”影响较小。
+- 交易金额对“信用卡还款”点击有极其显著的正向影响、“信用卡还款”使用频率较高的用户一般为持续高交易用户。高年龄段用户点击信用卡还款的倾向越高。红包使用用户、有房有车群体的信用卡还款倾向相对偏低。
+
+### spark工具在数据逻辑计算上的优化
+由于spark的Transform操作间只涉及到逻辑关系的存储，并未触发实际的计算算子，故而我们在用spark进行数据预处理的时候可以更加灵活的对数据进行处理和分析。
+
+对列变量的处理在数据提取和报表生成中比较常见，实际数据处理的过程中我们常常会遇到对输入表结构进行多次处理生成新的列变量的问题。
+
+比如在信用卡还款的留存分析中，我们想去大致统计**召回策略用户在单个账户在统计月份前贷记卡在总卡中的占比**。其中统一绑卡表的卡片生成逻辑如下，同一用户**usr_id**可能绑定多张卡片，当有新的记录进入时，表字段中的更新时间会发生改变**rec_upd_ts**，以绑卡类型**bind_tp**记录绑定卡片的类型。
+
+不难看出，上述操作中包含有聚合操作、过滤操作、条件选择。如果要用hive数仓进行操作，hql对多次迭代的分析无能为力，需要对中间结果进行存储临时表，而且整个过程需要操作者自己进行优化，涉及到大量的I/O和网络开销。但如果引入SPARK的**DataFrame API**，只需要很少的代码就可以高效完成上述任务。
+```
+#读取召回策略用户，并存储于缓存之中
+f=ss.sql("select * from data_tmp.xiezb_0520").dropDuplicates().cache() 
+#从统一绑卡表中选出合适字段并和召回策略用户关联
+tp=ss.sql("select * from upw_hive.view_ucbiz_bind_card_inf").select('usr_id','bind_tp','rec_upd_ts')
+tp=tp.join(f,tp.usr_id==f.cdhd_usr_id,'left').drop("cdhd_usr_id")
+tp=tp.select(tp.rec_upd_ts.substr(6, 2).alias('rec_upd_ts').cast("int"),"usr_id","bind_tp","time","status")
+#小于注册月份交易参考月份的卡相加
+tp=tp.select (tp.usr_id,tp.time,tp.status,F.when(tp.rec_upd_ts<tp.time,1).otherwise(0).alias('f2'),F.when((tp.rec_upd_ts<tp.time)&(tp.bind_tp=='02'),1).otherwise(0).alias('f1'))
+tp=tp.groupby("usr_id","time","status").agg({"f1":"sum","f2":"sum"}).withColumnRenamed("sum(f1)","f3").withColumnRenamed("sum(f2)","f4")
+#将当月之前的贷记卡和其所持有的总卡数相除而得
+tp=tp.selectExpr("usr_id","time","status","f3/f4 as Credit_card_ratio").cache()
+```
+tp中就显示了我们想要的结果了，通过tp.show（）这个activation操作就可以快速的知道我们想要的结果。
+
+
+ 
+ 
+
+
+
+
 
 
 

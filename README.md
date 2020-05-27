@@ -367,7 +367,7 @@ imp_coef.plot(kind = "barh")
 plt.title("Coefficients in the Elastic Model")
 ```
 #### 结论
-![image](https://github.com/Xiezhibin/AI_spark/blob/master/images/model3.png)
+![image](https://github.com/Xiezhibin/AI_spark/blob/master/images/model3.jpg)
 ##### 云闪付主流功能点击和客群画像存在相关性
 大数据和机器学习结果显示，不同的主流应用在特征标准上存在显著差异，云闪付主流功能的使用和用户客族群画像存在强相关。
 - 年龄、交易金额、有车特征对“添加卡”功能存在负面效应。通俗来说、用户年龄越大，用户添卡的积极性越低；绑卡之前，也很难存在实质性的交易行为。
@@ -396,7 +396,7 @@ tp=tp.groupby("usr_id","time","status").agg({"f1":"sum","f2":"sum"}).withColumnR
 #将当月之前的贷记卡和其所持有的总卡数相除而得
 tp=tp.selectExpr("usr_id","time","status","f3/f4 as Credit_card_ratio").cache()
 ```
-tp中就显示了我们想要的结果了，通过tp.show（）这个activation操作就可以快速的知道我们想要的结果。
+tp中就显示了我们想要的结果了，通过tp.show(),这个activation操作就可以快速的知道我们想要的结果。
 
 
  

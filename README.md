@@ -399,55 +399,8 @@ tp=tp.selectExpr("usr_id","time","status","f3/f4 as Credit_card_ratio").cache()
 tp中就显示了我们想要的结果了，通过tp.show(),这个activation操作就可以快速的知道我们想要的结果。
 
 
-一、假设 
-1、每一个小程序结束行为前必然对应有一个小程序的启动行为(启动行为的采集准确率高于结束行为)；
-2、单一小程序的使用时间小于24h,若单一小程序使用时间超过24h的阈值,将不计入统计。
-
-二、定义
-1、window(窗口)
-窗口时间为观察期当天；
-2、triggers(触发)
-触发时间为观察期次日凌晨；
-3、watermark(水印)
-当发生数据传输延迟时，观测期内“小程序结束事件”在次日凌晨1点后传入将不计入小程序访问时长的统计。
 
 
-三、代码
-
-代码1
-
-insert overwrite table XXXX1(为以日为数据基础的表[applets_id string,run_time int run_count int])  as
-select
-applets_id,sum(unix_timestamp(time)-unix_timestamp(first_time)) as run_time,count(time) as  run_count
-from
-(
-    select distinct_id,time,applets_id,IfOpen,
-    LAG(time) OVER(PARTION BY applets_id,distinct_id ORDER BY TIME) As fisrt_time --窗口期往上第1行值
-    from
-    (
-    select usr_id,distinct_id,event,applets_id,time, 
-    case when event in ('MiniProgramBackCl','MiniProgramBreakCl','MiniProgramFrontCl') then 1
-    case when event in ('MiniProgramOpenPg') then 0
-    end as IfOpen
-    from event where data between '${start_dt}' and '${end_dt}'
-    and  event in ('MiniProgramBackCl','MiniProgramFrontCl','MiniProgramBreakCl','MiniProgramOpenPg')
-    ) tbl1
-    where IfOpen=1 and data='${end_dt}'
-) AA
-
-
-代码2
-insert overwrite  table XXXX2 As
-select applets_id,sum(run_count),sum(run_time)
-from
-(
-    select applets_id,run_count,run_time from 
-    XXXX2((为以日为数据基础的表[applets_id string,run_time int run_count int])
-    union all
-    select applets_id,run_count,run_time from 
-    XXXX1 ((为以日为数据基础的表[applets_id string,run_time int run_count int])
-) tbl2
-group by applets_id
 
 
  

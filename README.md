@@ -398,6 +398,12 @@ tp=tp.selectExpr("usr_id","time","status","f3/f4 as Credit_card_ratio").cache()
 ```
 tp中就显示了我们想要的结果了，通过tp.show(),这个activation操作就可以快速的知道我们想要的结果。
 
+curl --silent --location https://rpm.nodesource.com/setup_10.x | bash -
+yum install -y nodejs
+npm install -g cnpm --registry=https://registry.npm.taobao.org
+npm install
+npm run build
+npm -v
 
 
 
